@@ -1,66 +1,84 @@
 // Next.js API route support: https://nextjs.org/docs/api-routes/introduction
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { AccessToken, Role } from '@huddle01/server-sdk/auth';
-import Cors from 'cors';
+import { API } from '@huddle01/server-sdk/api';
 
-const cors = Cors({
-  methods: ['POST', 'GET', 'HEAD'],
-});
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+    const { roomId, address, displayName, expirationTime } = req.body as {
+        roomId: string;
+        address: string;
+        expirationTime: number;
+        displayName: string;
+    };
 
-function runMiddleware(
-  req: NextApiRequest,
-  res: NextApiResponse,
-  fn: Function
-) {
-  return new Promise((resolve, reject) => {
-    fn(req, res, (result: any) => {
-      if (result instanceof Error) {
-        return reject(result);
-      }
+    if (!roomId || !address) {
+        return res.status(400).json({ error: 'Invalid Request' });
+    }
 
-      return resolve(result);
+    if (expirationTime < Date.now()) {
+        return res.status(400).json({ error: 'Signature expired' });
+    }
+
+    const api = new API({
+        apiKey: process.env.API_KEY!,
     });
-  });
-}
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
-  await runMiddleware(req, res, cors);
+    const { data: roomDetails } = await api.getRoomDetails({
+        roomId: roomId,
+    });
 
-  const { roomId } = req.query;
+    if (!roomDetails?.tokenGatingInfo) {
+        return res.status(400).json({ error: 'Room is not token gated' });
+    }
 
-  if (!roomId) {
-    return res.status(400).json({ error: 'roomId is required' });
-  }
+    const collectionAddress = roomDetails?.tokenGatingInfo?.tokenGatingConditions[0]?.contractAddress;
 
-  const accessToken = new AccessToken({
-    apiKey: process.env.API_KEY!,
-    roomId: roomId as string,
-    role: Role.HOST,
-    permissions: {
-      admin: true,
-      canConsume: true,
-      canProduce: true,
-      canProduceSources: {
-        cam: true,
-        mic: true,
-        screen: true,
-      },
-      canRecvData: true,
-      canSendData: true,
-      canUpdateMetadata: true,
-    },
-    options: {
-      metadata: {
-        displayName: 'vraj',
-        walletAddress: 'vraj.eth',
-      },
-    },
-  });
+    const apiResponse = await fetch(
+        `https://api.shyft.to/sol/v1/nft/search?wallet=${address}&network=mainnet-beta&size=1&collection=${collectionAddress}`,
+        {
+            method: 'GET',
+            headers: {
+                'x-api-key': process.env.SHYFT_API_KEY!,
+            },
+        }
+    );
 
-  const token = await accessToken.toJwt();
+    const nftData = (await apiResponse.json()) as {
+        result: {
+            nfts: any[];
+        };
+    };
 
-  return res.status(200).json({ token });
+    if (nftData.result.nfts.length === 0) {
+        return res.status(400).json({ error: 'User does not own the required NFT' });
+    }
+
+    const accessToken = new AccessToken({
+        apiKey: process.env.API_KEY!,
+        roomId: roomId as string,
+        role: Role.HOST,
+        permissions: {
+            admin: true,
+            canConsume: true,
+            canProduce: true,
+            canProduceSources: {
+                cam: true,
+                mic: true,
+                screen: true,
+            },
+            canRecvData: true,
+            canSendData: true,
+            canUpdateMetadata: true,
+        },
+        options: {
+            metadata: {
+                displayName: displayName,
+                walletAddress: address,
+            },
+        },
+    });
+
+    const token = await accessToken.toJwt();
+
+    return res.status(200).json({ token });
 }

@@ -1,5 +1,3 @@
-import { createTheme, StyledEngineProvider, ThemeProvider } from '@mui/material';
-import { deepPurple, pink } from '@mui/material/colors';
 import type { Adapter, WalletError } from '@solana/wallet-adapter-base';
 import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
 import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
@@ -12,41 +10,6 @@ import { SnackbarProvider, useSnackbar } from 'notistack';
 import type { FC, ReactNode } from 'react';
 import React, { useCallback, useMemo } from 'react';
 import { AutoConnectProvider, useAutoConnect } from './AutoConnectProvider';
-
-const theme = createTheme({
-    palette: {
-        mode: 'dark',
-        primary: {
-            main: deepPurple[700],
-        },
-        secondary: {
-            main: pink[700],
-        },
-    },
-    components: {
-        MuiButtonBase: {
-            styleOverrides: {
-                root: {
-                    justifyContent: 'flex-start',
-                },
-            },
-        },
-        MuiButton: {
-            styleOverrides: {
-                root: {
-                    textTransform: 'none',
-                    padding: '12px 16px',
-                },
-                startIcon: {
-                    marginRight: 8,
-                },
-                endIcon: {
-                    marginLeft: 8,
-                },
-            },
-        },
-    },
-});
 
 const WalletContextProvider: FC<{ children: ReactNode }> = ({ children }) => {
     const { autoConnect } = useAutoConnect();
@@ -112,14 +75,10 @@ const WalletContextProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
 export const ContextProvider: FC<{ children: ReactNode }> = ({ children }) => {
     return (
-        <StyledEngineProvider injectFirst>
-            <ThemeProvider theme={theme}>
-                <SnackbarProvider>
-                    <AutoConnectProvider>
-                        <WalletContextProvider>{children}</WalletContextProvider>
-                    </AutoConnectProvider>
-                </SnackbarProvider>
-            </ThemeProvider>
-        </StyledEngineProvider>
+        <SnackbarProvider>
+            <AutoConnectProvider>
+                <WalletContextProvider>{children}</WalletContextProvider>
+            </AutoConnectProvider>
+        </SnackbarProvider>
     );
 };
