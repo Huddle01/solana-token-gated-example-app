@@ -1,4 +1,3 @@
-import type { SolanaSignInInput } from '@solana/wallet-standard-features';
 import { SigninMessage } from '../lib/SignInMessage';
 import base58 from 'bs58';
 import axios, { isAxiosError } from 'axios';
@@ -10,8 +9,6 @@ export const handleSignIn = async (roomId: string, displayName: string, signIn: 
             issuedAt: Date.now(),
             expiresAt: Date.now() + 1000 * 60 * 5,
         };
-
-        console.log(publicKey.toBase58());
 
         const signInMessage = new SigninMessage({
             domain: window.location.host,

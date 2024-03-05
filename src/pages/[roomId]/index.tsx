@@ -10,7 +10,6 @@ import {
     useRoom,
 } from '@huddle01/react/hooks';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { useRouter } from 'next/router';
 import { useEffect, useRef, useState } from 'react';
 import React from 'react';
