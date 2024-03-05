@@ -9,15 +9,18 @@ import {
     usePeerIds,
     useRoom,
 } from '@huddle01/react/hooks';
-import { AccessToken, Role } from '@huddle01/server-sdk/auth';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { useRouter } from 'next/router';
 import { useEffect, useRef, useState } from 'react';
 import React from 'react';
 import { handleSignIn } from '../../components/SignIn';
-import { useNotify } from '../../components/notify';
-import { Button } from '../../components/ui/button';
+import dynamic from 'next/dynamic';
+
+const ReactUIWalletMultiButtonDynamic = dynamic(
+    async () => (await import('@solana/wallet-adapter-react-ui')).WalletMultiButton,
+    { ssr: false }
+);
 
 export default function Home() {
     const [displayName, setDisplayName] = useState<string>('');
@@ -26,7 +29,6 @@ export default function Home() {
     const router = useRouter();
     const [isRecording, setIsRecording] = useState<boolean>(false);
     const wallet = useWallet();
-    const walletModal = useWalletModal();
 
     const { joinRoom, state } = useRoom({
         onJoin: (room) => {
@@ -42,7 +44,6 @@ export default function Home() {
     const { startScreenShare, stopScreenShare, shareStream } = useLocalScreenShare();
     const { updateMetadata } = useLocalPeer<TPeerMetadata>();
     const { peerIds } = usePeerIds();
-    const notify = useNotify();
 
     useEffect(() => {
         if (stream && videoRef.current) {
@@ -55,6 +56,26 @@ export default function Home() {
             screenRef.current.srcObject = shareStream;
         }
     }, [shareStream]);
+
+    useEffect(() => {
+        const handleWallet = async () => {
+            const token = await handleSignIn(
+                router.query.roomId as string,
+                displayName,
+                wallet.signMessage,
+                wallet.publicKey
+            );
+            if (token) {
+                await joinRoom({
+                    token,
+                    roomId: router.query.roomId as string,
+                });
+            }
+        };
+        if (wallet.connected && state === 'idle') {
+            handleWallet();
+        }
+    }, [wallet.connected]);
 
     return (
         <main className="flex min-h-screen bg-slate-900 flex-col items-center p-4">
@@ -73,29 +94,7 @@ export default function Home() {
                                 value={displayName}
                                 onChange={(event) => setDisplayName(event.target.value)}
                             />
-                            <Button
-                                className="bg-slate-600 p-2 mx-2 rounded-lg font-medium text-white hover:bg-slate-500 border-slate-700"
-                                onClick={async () => {
-                                    if (!wallet.connected) {
-                                        walletModal.setVisible(true);
-                                    }
-                                    const token = await handleSignIn(
-                                        router.query.roomId as string,
-                                        displayName,
-                                        wallet.signIn,
-                                        wallet.publicKey,
-                                        notify
-                                    );
-                                    if (token) {
-                                        await joinRoom({
-                                            token,
-                                            roomId: router.query.roomId as string,
-                                        });
-                                    }
-                                }}
-                            >
-                                Sign In With Wallet
-                            </Button>
+                            <ReactUIWalletMultiButtonDynamic />
                         </>
                     )}
 

@@ -2,13 +2,16 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { AccessToken, Role } from '@huddle01/server-sdk/auth';
 import { API } from '@huddle01/server-sdk/api';
+import { SigninMessage } from '../../lib/SignInMessage';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-    const { roomId, address, displayName, expirationTime } = req.body as {
+    const { roomId, address, displayName, expirationTime, signature, domain } = req.body as {
         roomId: string;
         address: string;
         expirationTime: number;
         displayName: string;
+        domain: string;
+        signature: string;
     };
 
     if (!roomId || !address) {
@@ -29,6 +32,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (!roomDetails?.tokenGatingInfo) {
         return res.status(400).json({ error: 'Room is not token gated' });
+    }
+
+    const signInMessage = new SigninMessage({
+        domain,
+        publicKey: address,
+        expTime: new Date(expirationTime).toISOString(),
+        statement: 'Please Sign In to verify wallet',
+    });
+
+    const isVerified = await signInMessage.validate(signature);
+
+    if (!isVerified) {
+        return res.status(400).json({ error: 'Invalid Signature' });
     }
 
     const collectionAddress = roomDetails?.tokenGatingInfo?.tokenGatingConditions[0]?.contractAddress;

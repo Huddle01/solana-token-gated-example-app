@@ -1,30 +1,30 @@
-import type { SolanaSignInInput, SolanaSignInOutput } from '@solana/wallet-standard-features';
-import { verifySignIn } from '@solana/wallet-standard-util';
-import axios from 'axios';
+import type { SolanaSignInInput } from '@solana/wallet-standard-features';
+import { SigninMessage } from '../lib/SignInMessage';
+import base58 from 'bs58';
+import axios, { isAxiosError } from 'axios';
+import toast from 'react-hot-toast';
 
-export const handleSignIn = async (roomId: string, displayName: string, signIn: any, publicKey: any, notify: any) => {
-    console.log('roomId', roomId);
-
+export const handleSignIn = async (roomId: string, displayName: string, signIn: any, publicKey: any) => {
     try {
         const time = {
             issuedAt: Date.now(),
             expiresAt: Date.now() + 1000 * 60 * 5,
         };
 
-        const input: SolanaSignInInput = {
+        console.log(publicKey.toBase58());
+
+        const signInMessage = new SigninMessage({
             domain: window.location.host,
-            address: publicKey ? publicKey.toBase58() : undefined,
+            publicKey: publicKey.toBase58(),
+            expTime: new Date(time.expiresAt).toISOString(),
             statement: 'Please Sign In to verify wallet',
-        };
+        });
 
-        const output = (await signIn(input)) as SolanaSignInOutput;
+        const data = new TextEncoder().encode(signInMessage.prepare());
 
-        const isVerified = verifySignIn(input, output);
+        const signature = await signIn(data);
 
-        if (!isVerified) {
-            notify('error', 'Sign In verification failed!');
-            return;
-        }
+        const serializedSignature = base58.encode(signature);
 
         const token = await axios.request({
             method: 'POST',
@@ -34,16 +34,18 @@ export const handleSignIn = async (roomId: string, displayName: string, signIn: 
                 roomId,
                 address: publicKey.toBase58(),
                 expirationTime: time.expiresAt,
+                domain: window.location.host,
+                signature: serializedSignature,
             },
             headers: {
                 'Content-Type': 'application/json',
             },
         });
 
-        console.log('token', token?.data?.token);
-
         return token?.data?.token;
     } catch (error: any) {
-        notify('error', `Sign In failed: ${error?.message}`);
+        if (isAxiosError(error)) {
+            toast.error(error.response?.data?.error);
+        }
     }
 };

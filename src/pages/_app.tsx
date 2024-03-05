@@ -3,6 +3,7 @@ import Head from 'next/head';
 import type { FC } from 'react';
 import React from 'react';
 import { ContextProvider } from '../components/ContextProvider';
+import { Toaster } from 'react-hot-toast';
 import { HuddleClient, HuddleProvider } from '@huddle01/react';
 
 // Use require instead of import since order matters
@@ -22,10 +23,11 @@ const App: FC<AppProps> = ({ Component, pageProps }) => {
     return (
         <>
             <Head>
-                <title>@solana/wallet-adapter Example</title>
+                <title>Solan Token Gated Example</title>
             </Head>
             <ContextProvider>
                 <HuddleProvider client={huddleClient}>
+                    <Toaster position="bottom-right" />
                     <Component {...pageProps} />
                 </HuddleProvider>
             </ContextProvider>
